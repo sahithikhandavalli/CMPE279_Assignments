@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <netinet/in.h>
 #include <string.h>
+#include <pwd.h>
 #define PORT 8080
 
 int main(int argc, char const *argv[])
@@ -53,10 +54,39 @@ int main(int argc, char const *argv[])
         exit(EXIT_FAILURE);
     }
 
-    valread = read(new_socket, buffer, 1024);
-    printf("Read %d bytes: %s\n", valread, buffer);
-    send(new_socket, hello, strlen(hello), 0);
-    printf("Hello message sent\n");
+    printf("Forking a child process.\n");
 
-    return 0;
+    int pid = fork();
+    if(pid < 0)
+    {
+        printf("Error!! Child process cannot be created.");
+        return -1;
+    }
+    else if(pid == 0)
+    {
+        printf("Inside child process!!\n");
+        const char * nobodyUser = "nobody";
+        struct passwd *pwd = getpwnam(nobodyUser);
+        if (pwd == NULL) {
+                    printf("ERROR in finding user with name %s\n", nobodyUser);
+                    return -1;
+              }
+        //setuid - On success, zero is returned. On error, -1 is returned, and errno is set appropriately.
+        int setuid_reponse = setuid(pwd->pw_uid);
+        if(setuid_reponse < 0){
+                printf("ERROR in dropping privileges and error number = %d\n", setuid_reponse);
+                return -1;
+              }
+        printf("Child process dropped privileges\n" );
+        valread = read(new_socket, buffer, 1024);
+        printf("Read %d bytes: %s\n", valread, buffer);
+        send(new_socket, hello, strlen(hello), 0);
+        printf("Hello message sent\n");
+        return 0;
+    }
+    else{
+         wait(NULL);
+         printf("Parent Terminating..\n" );
+    }
+
 }
